@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GhostChat - Offline</title>
+    <title>GhostChat - Auto Connect</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsQR@1.4.0/dist/jsQR.min.js"></script>
     <style>
         :root {
             --bg: #0a0a0c;
@@ -16,7 +18,7 @@
             --success: #10b981;
         }
         
-        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
         body {
             margin: 0; background-color: var(--bg); color: var(--text);
@@ -28,13 +30,12 @@
             display: flex; flex-direction: column; height: 100%; position: relative;
         }
 
-        /* Header */
         .header {
-            padding: 20px; background: rgba(24, 24, 27, 0.8);
+            padding: 15px 20px; background: rgba(24, 24, 27, 0.8);
             backdrop-filter: blur(10px); border-bottom: 1px solid #27272a;
             display: flex; justify-content: space-between; align-items: center; z-index: 10;
         }
-        .header h2 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: 0.5px; }
+        .header h2 { margin: 0; font-size: 1.2rem; font-weight: 600; }
         
         .status-badge {
             display: flex; align-items: center; gap: 6px;
@@ -44,15 +45,15 @@
         .status-badge.connected { background: rgba(16, 185, 129, 0.1); color: var(--success); }
         .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 
-        /* Setup Flow UI */
         .setup-overlay {
-            position: absolute; top: 65px; left: 0; right: 0; bottom: 0;
+            position: absolute; top: 60px; left: 0; right: 0; bottom: 0;
             background: var(--bg); z-index: 20; padding: 20px;
             display: flex; flex-direction: column; gap: 15px; overflow-y: auto;
+            align-items: center; justify-content: center; text-align: center;
         }
         
-        .card { background: #27272a; padding: 20px; border-radius: 16px; text-align: center; }
-        .card h3 { margin: 0 0 10px 0; font-size: 1.1rem; }
+        .card { background: #27272a; padding: 25px; border-radius: 20px; width: 100%; max-width: 360px; }
+        .card h3 { margin: 0 0 10px 0; font-size: 1.2rem; }
         .card p { margin: 0 0 20px 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; }
         
         .btn {
@@ -60,29 +61,31 @@
             padding: 14px 20px; border-radius: 12px; font-size: 1rem;
             font-weight: 600; cursor: pointer; width: 100%; transition: 0.2s;
             display: flex; justify-content: center; align-items: center; gap: 8px;
+            margin-top: 10px;
         }
         .btn:active { transform: scale(0.98); background: var(--primary-hover); }
         .btn-secondary { background: #3f3f46; }
-        .btn-secondary:active { background: #52525b; }
 
-        /* Chat Area */
+        #qrcodeContainer, #qrcodeContainerJoin {
+            background: white; padding: 15px; border-radius: 12px;
+            display: inline-block; margin: 15px 0;
+        }
+        #qrcodeContainer svg, #qrcodeContainer canvas, 
+        #qrcodeContainerJoin svg, #qrcodeContainerJoin canvas { display: block; margin: 0 auto; }
+
         .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
         .message {
             max-width: 75%; padding: 12px 16px; border-radius: 20px;
             font-size: 0.95rem; line-height: 1.4; word-wrap: break-word;
-            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        
         .message.self { background: var(--primary); align-self: flex-end; border-bottom-right-radius: 4px; }
         .message.other { background: #27272a; align-self: flex-start; border-bottom-left-radius: 4px; }
 
-        /* Controls */
         .controls-bar {
             padding: 10px 20px; background: #18181b; border-top: 1px solid #27272a;
             display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem;
         }
-        .volume-slider { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .volume-slider { display: flex; align-items: center; gap: 10px; width: 100%; color: var(--text-muted); }
         input[type="range"] { flex: 1; accent-color: var(--primary); }
 
         .input-area {
@@ -91,19 +94,17 @@
         }
         #msgInput {
             flex: 1; padding: 14px 20px; border-radius: 24px; border: 1px solid #3f3f46;
-            background: #27272a; color: white; outline: none; font-size: 1rem; transition: 0.2s;
+            background: #27272a; color: white; outline: none; font-size: 1rem;
         }
-        #msgInput:focus { border-color: var(--primary); }
-        
         #sendBtn {
             background: var(--primary); color: white; border: none;
             border-radius: 50%; width: 50px; height: 50px; display: flex;
-            justify-content: center; align-items: center; cursor: pointer;
+            justify-content: center; align-items: center; cursor: pointer; flex-shrink: 0;
         }
-        #sendBtn:active { transform: scale(0.95); }
         #sendBtn svg { width: 20px; height: 20px; fill: white; margin-left: 2px; }
         
         .hidden { display: none !important; }
+        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
@@ -113,58 +114,55 @@
         <h2>GhostChat</h2>
         <div id="statusBadge" class="status-badge">
             <div class="dot"></div>
-            <span id="statusText">Setup Required</span>
+            <span id="statusText">Checking Pairing...</span>
         </div>
     </div>
 
-    <!-- Simplified UI Overlay for connecting -->
+    <!-- QR Setup Overlay -->
     <div class="setup-overlay" id="setupOverlay">
         
-        <div id="step-start" class="card">
-            <h3>Connect Phones</h3>
-            <p>Phones must be on the same WiFi/Hotspot. Choose one phone to Host, and the other to Join.</p>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn" onclick="startHost()">Create Chat</button>
-                <button class="btn btn-secondary" onclick="startJoin()">Join Chat</button>
-            </div>
+        <!-- Step 1: Choose Role -->
+        <div id="step-choice" class="card">
+            <h3>One-Time Pairing</h3>
+            <p>Scan a QR code only once. Future openings will connect automatically!</p>
+            <button class="btn" onclick="startHost()">Host Chat</button>
+            <button class="btn btn-secondary" onclick="triggerScan(processHostQR)">Scan Host QR</button>
         </div>
 
-        <div id="step-host-1" class="card hidden">
-            <h3>1. Share Code</h3>
-            <p>Your invite code is ready. Copy it and send it to your friend.</p>
-            <button class="btn" onclick="copyCode()" id="btnCopyCode">📋 Copy Invite Code</button>
-            <p style="margin-top: 20px;">Once they reply with their code, paste it below:</p>
-            <button class="btn btn-secondary" onclick="pasteAndFinalize()">📥 Paste Friend's Code</button>
+        <!-- Step 2: Host Shows QR -->
+        <div id="step-host-qr" class="card hidden">
+            <h3>Scan This QR</h3>
+            <p>Let your friend scan this code once.</p>
+            <div id="qrcodeContainer"></div>
+            <button class="btn btn-secondary" onclick="triggerScan(processJoinReplyQR)">Scan Friend's Reply QR</button>
         </div>
 
-        <div id="step-join-1" class="card hidden">
-            <h3>1. Paste Invite</h3>
-            <p>Copy the invite code your friend sent you, then tap below.</p>
-            <button class="btn btn-secondary" onclick="pasteAndJoin()">📥 Paste Invite Code</button>
-        </div>
-
-        <div id="step-join-2" class="card hidden">
-            <h3>2. Send Reply</h3>
-            <p>You're almost in! Copy this reply code and send it back to the host.</p>
-            <button class="btn" onclick="copyCode()" id="btnCopyReply">📋 Copy Reply Code</button>
+        <!-- Step 3: Joiner Shows Reply QR -->
+        <div id="step-join-qr" class="card hidden">
+            <h3>Final Step</h3>
+            <p>Show this reply code back to the Host phone to lock-in permanent pairing.</p>
+            <div id="qrcodeContainerJoin"></div>
         </div>
     </div>
+
+    <!-- Hidden Camera Input for Snap-to-Scan -->
+    <input type="file" id="qrInput" accept="image/*" capture="environment" onchange="decodeQR(this)">
 
     <div class="chat-box" id="chatBox">
         <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin: 10px 0;">
-            Microphone active. Ambient sounds are being transmitted.
+            Microphone continuously listening for background audio.
         </div>
     </div>
 
     <div class="controls-bar">
         <div class="volume-slider">
-            <span>🔊 Speaker Volume</span>
+            <span>🔊 Speaker Vol</span>
             <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
         </div>
     </div>
 
     <div class="input-area">
-        <input type="text" id="msgInput" placeholder="Message..." autocomplete="off">
+        <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
         <button id="sendBtn">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
@@ -174,7 +172,6 @@
 <audio id="remoteAudio" autoplay></audio>
 
 <script>
-    // --- UI Elements ---
     const setupOverlay = document.getElementById('setupOverlay');
     const chatBox = document.getElementById('chatBox');
     const msgInput = document.getElementById('msgInput');
@@ -183,21 +180,20 @@
     const statusText = document.getElementById('statusText');
     const remoteAudio = document.getElementById('remoteAudio');
     const volumeSlider = document.getElementById('volumeSlider');
-    
-    // Screens
-    const stepStart = document.getElementById('step-start');
-    const stepHost1 = document.getElementById('step-host-1');
-    const stepJoin1 = document.getElementById('step-join-1');
-    const stepJoin2 = document.getElementById('step-join-2');
+    const qrInput = document.getElementById('qrInput');
 
-    let currentSdpCode = "";
+    const stepChoice = document.getElementById('step-choice');
+    const stepHostQr = document.getElementById('step-host-qr');
+    const stepJoinQr = document.getElementById('step-join-qr');
 
-    // --- Audio System (Always Listening, Highly Sensitive) ---
+    let scanCallback = null;
+
+    // Volume control
     remoteAudio.volume = volumeSlider.value;
     volumeSlider.addEventListener('input', (e) => remoteAudio.volume = e.target.value);
 
+    // Audio context for send feedback sound
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
     function playBloop() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
@@ -212,24 +208,22 @@
         osc.stop(audioCtx.currentTime + 0.1);
     }
 
+    // Always-on sensitive microphone
     let localStream;
-    async function startAlwaysListening() {
+    async function initMic() {
         try {
-            // Extreme sensitivity constraints
             localStream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
                 video: false
             });
-        } catch (err) {
-            alert("Microphone access is required for voice!");
+        } catch (e) {
+            alert("Microphone permission is required!");
         }
     }
-    window.onload = startAlwaysListening;
 
-    // --- WebRTC Offline Networking ---
-    let peerConnection;
-    let dataChannel;
-    const config = { iceServers: [] }; // Empty = Local Network Only
+    // WebRTC connection
+    let peerConnection, dataChannel;
+    const config = { iceServers: [] }; // Fully offline local network routing
 
     function initWebRTC() {
         peerConnection = new RTCPeerConnection(config);
@@ -242,87 +236,166 @@
             if (peerConnection.connectionState === 'connected') {
                 setupOverlay.classList.add('hidden');
                 statusBadge.classList.add('connected');
-                statusText.innerText = "Live & Listening";
-            } else if (peerConnection.connectionState === 'disconnected') {
+                statusText.innerText = "Connected & Live";
+            } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
                 statusBadge.classList.remove('connected');
-                statusText.innerText = "Disconnected";
+                statusText.innerText = "Reconnecting...";
             }
         };
     }
 
-    function setupDataChannel() {
-        dataChannel.onmessage = e => addMessage(e.data, false);
+    function renderQR(text, elementId) {
+        const qr = qrcode(0, 'L');
+        qr.addData(text);
+        qr.make();
+        document.getElementById(elementId).innerHTML = qr.createSvgTag({cellSize: 4, margin: 2});
     }
 
-    // --- Flow Controls ---
+    // --- Automatic Storage Check on Startup ---
+    window.onload = async () => {
+        await initMic();
+        
+        const savedRemoteDesc = localStorage.getItem('ghost_remote_desc');
+        const savedIsHost = localStorage.getItem('ghost_is_host');
 
-    // Host Flow
+        if (savedRemoteDesc && savedIsHost !== null) {
+            // We already paired before! Auto-connect silently.
+            statusText.innerText = "Auto-Connecting...";
+            initWebRTC();
+
+            if (savedIsHost === "true") {
+                dataChannel = peerConnection.createDataChannel('chat');
+                dataChannel.onmessage = e => addMessage(e.data, false);
+
+                peerConnection.onicecandidate = async e => {
+                    if (e.candidate === null) {
+                        const myDesc = JSON.stringify(peerConnection.localDescription);
+                        // If we are host, we load the saved answer from joiner
+                        await peerConnection.setRemoteDescription(JSON.parse(savedRemoteDesc));
+                    }
+                };
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+            } else {
+                peerConnection.ondatachannel = e => {
+                    dataChannel = e.channel;
+                    dataChannel.onmessage = ev => addMessage(ev.data, false);
+                };
+
+                peerConnection.onicecandidate = async e => {
+                    if (e.candidate === null) {
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                    }
+                };
+                await peerConnection.setRemoteDescription(JSON.parse(savedRemoteDesc));
+            }
+        } else {
+            // First time setup required
+            statusText.innerText = "Setup Required";
+        }
+    };
+
+    // --- Host Flow ---
     async function startHost() {
         initWebRTC();
         dataChannel = peerConnection.createDataChannel('chat');
-        setupDataChannel();
-        
+        dataChannel.onmessage = e => addMessage(e.data, false);
+
         peerConnection.onicecandidate = e => {
             if (e.candidate === null) {
-                currentSdpCode = btoa(JSON.stringify(peerConnection.localDescription));
-                stepStart.classList.add('hidden');
-                stepHost1.classList.remove('hidden');
+                const code = btoa(JSON.stringify(peerConnection.localDescription));
+                stepChoice.classList.add('hidden');
+                stepHostQr.classList.remove('hidden');
+                renderQR(code, 'qrcodeContainer');
             }
         };
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
     }
 
-    async function pasteAndFinalize() {
+    async function processJoinReplyQR(codeData) {
         try {
-            const code = await navigator.clipboard.readText();
-            const answer = JSON.parse(atob(code));
+            const answerStr = atob(codeData);
+            const answer = JSON.parse(answerStr);
             await peerConnection.setRemoteDescription(answer);
+
+            // SAVE PERMANENTLY FOR AUTO-CONNECT NEXT TIME
+            localStorage.setItem('ghost_is_host', "true");
+            localStorage.setItem('ghost_remote_desc', answerStr);
         } catch (err) {
-            alert("Clipboard empty or invalid code. Make sure you copied your friend's reply!");
+            alert("Invalid QR code scanned. Try again.");
         }
     }
 
-    // Join Flow
-    function startJoin() {
-        stepStart.classList.add('hidden');
-        stepJoin1.classList.remove('hidden');
-    }
-
-    async function pasteAndJoin() {
+    // --- Join Flow ---
+    async function processHostQR(codeData) {
         try {
-            const code = await navigator.clipboard.readText();
-            const offer = JSON.parse(atob(code));
-            
             initWebRTC();
             peerConnection.ondatachannel = e => {
                 dataChannel = e.channel;
-                setupDataChannel();
+                dataChannel.onmessage = ev => addMessage(ev.data, false);
             };
-            
+
+            const offerStr = atob(codeData);
+            const offer = JSON.parse(offerStr);
+            await peerConnection.setRemoteDescription(offer);
+
             peerConnection.onicecandidate = e => {
                 if (e.candidate === null) {
-                    currentSdpCode = btoa(JSON.stringify(peerConnection.localDescription));
-                    stepJoin1.classList.add('hidden');
-                    stepJoin2.classList.remove('hidden');
+                    const localDesc = peerConnection.localDescription;
+                    const replyCode = btoa(JSON.stringify(localDesc));
+                    
+                    // SAVE PERMANENTLY FOR AUTO-CONNECT NEXT TIME
+                    localStorage.setItem('ghost_is_host', "false");
+                    localStorage.setItem('ghost_remote_desc', offerStr);
+
+                    stepChoice.classList.add('hidden');
+                    stepJoinQr.classList.remove('hidden');
+                    renderQR(replyCode, 'qrcodeContainerJoin');
                 }
             };
 
-            await peerConnection.setRemoteDescription(offer);
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
         } catch (err) {
-            alert("Clipboard empty or invalid code. Copy the host's code first!");
+            alert("Invalid host QR code scanned.");
         }
     }
 
-    // Helpers
-    function copyCode() {
-        navigator.clipboard.writeText(currentSdpCode).then(() => {
-            alert("Code Copied! Send it to the other phone.");
-        });
+    // Camera Scan Helper
+    function triggerScan(callback) {
+        scanCallback = callback;
+        qrInput.click();
     }
 
+    function decodeQR(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (code) {
+                        if (scanCallback) scanCallback(code.data);
+                    } else {
+                        alert("Could not detect a QR code. Make sure the photo is clear.");
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // Chat handling
     function addMessage(text, isSelf) {
         const div = document.createElement('div');
         div.className = `message ${isSelf ? 'self' : 'other'}`;
