@@ -3,317 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline Voice & Text Messenger</title>
+    <title>Offline Voice Messenger</title>
     <style>
-        :root {
-            --bg: #121212;
-            --surface: #1e1e1e;
-            --primary: #0084ff;
-            --text: #e1e1e1;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        .app-container {
-            width: 100%;
-            max-width: 400px;
-            background: var(--surface);
-            border-radius: 12px;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
             display: flex;
             flex-direction: column;
-            height: 90vh;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            height: 100vh;
             overflow: hidden;
         }
-        .header {
-            padding: 15px;
-            background: #252525;
-            text-align: center;
-            border-bottom: 1px solid #333;
-        }
-        .status {
-            font-size: 12px;
-            color: #4caf50;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-        }
-        .status.offline { color: #f44336; }
-        .dot {
-            width: 8px;
-            height: 8px;
-            background: currentColor;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.5; }
-        }
-        .volume-control {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-            font-size: 12px;
-            background: #1a1a1a;
-            border-bottom: 1px solid #333;
-        }
-        .volume-control input {
-            margin-left: 10px;
-            width: 100px;
-        }
-        .chat-box {
+
+        #chat-container {
             flex: 1;
-            padding: 15px;
+            padding: 20px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
+
         .message {
-            max-width: 80%;
-            padding: 10px 15px;
+            max-width: 70%;
+            padding: 12px 16px;
             border-radius: 18px;
-            font-size: 14px;
-            word-wrap: break-word;
+            font-size: 16px;
+            line-height: 1.4;
+            animation: popIn 0.3s ease-out;
         }
-        .message.self {
-            background: var(--primary);
+
+        .message.sent {
+            background-color: #0b93f6;
+            color: white;
             align-self: flex-end;
             border-bottom-right-radius: 4px;
         }
-        .message.other {
-            background: #333;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
+
+        .message.system {
+            background-color: #333333;
+            color: #aaaaaa;
+            align-self: center;
+            font-size: 12px;
+            border-radius: 12px;
+            text-align: center;
         }
-        .input-area {
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* Overlay to bypass browser Autoplay/Mic block */
+        #start-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.9);
             display: flex;
-            padding: 15px;
-            background: #252525;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #start-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #0b93f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(11, 147, 246, 0.4);
+        }
+
+        #status-bar {
+            background-color: #1e1e1e;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #00e676;
             border-top: 1px solid #333;
         }
-        input[type="text"] {
-            flex: 1;
-            padding: 10px 15px;
-            border-radius: 20px;
-            border: none;
-            background: #333;
-            color: white;
-            outline: none;
-        }
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            margin-left: 10px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button:active { background: #006bce; }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div class="header">
-        <h3 style="margin: 0 0 5px 0;">Offline Voice Connect</h3>
-        <div id="statusText" class="status offline"><div class="dot"></div>Waiting for other tab...</div>
-    </div>
-    
-    <div class="volume-control">
-        <span>Speaker Volume: </span>
-        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
+    <!-- Start Overlay for Browser Permissions -->
+    <div id="start-overlay">
+        <h2 style="margin-bottom: 20px;">Offline Voice Messenger</h2>
+        <p style="text-align: center; max-width: 400px; color: #ccc; margin-bottom: 30px;">
+            Browsers require you to click once to allow audio playback and microphone access. After this, it will listen automatically.
+        </p>
+        <button id="start-btn">Click to Initialize Messenger</button>
     </div>
 
-    <div class="chat-box" id="chatBox">
-        <div style="text-align: center; color: #777; font-size: 12px; margin-bottom: 10px;">
-            Open this page in a second tab. The microphone is highly sensitive and always on.
-        </div>
-    </div>
+    <!-- Chat UI -->
+    <div id="chat-container"></div>
+    <div id="status-bar">Waiting to start...</div>
 
-    <div class="input-area">
-        <input type="text" id="msgInput" placeholder="Send a fast message..." autocomplete="off">
-        <button id="sendBtn">➤</button>
-    </div>
-</div>
+    <script>
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const chatContainer = document.getElementById('chat-container');
+        const statusBar = document.getElementById('status-bar');
 
-<!-- Hidden audio element for playing incoming voice -->
-<audio id="remoteAudio" autoplay></audio>
+        let audioCtx;
+        let recognition;
+        let isListening = false;
 
-<script>
-    // Audio synthesis for the "send message" sound
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSendSound() {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.2);
-    }
+        // Play a fast, offline generated "sent" sound using Web Audio API
+        function playSendSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime); // High pitch pop
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            // Speaker can be quiet: volume set low to 0.2 out of 1.0
+            gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
 
-    // UI Elements
-    const chatBox = document.getElementById('chatBox');
-    const msgInput = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const statusText = document.getElementById('statusText');
-    const remoteAudio = document.getElementById('remoteAudio');
-    const volumeSlider = document.getElementById('volumeSlider');
+        function addMessage(text, type = 'sent') {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', type);
+            msgDiv.textContent = text;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
 
-    // Volume control
-    volumeSlider.addEventListener('input', (e) => {
-        remoteAudio.volume = e.target.value;
-    });
-    remoteAudio.volume = volumeSlider.value;
+        function initApp() {
+            // 1. Initialize Audio Context for Sounds
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    function addMessage(text, isSelf) {
-        const div = document.createElement('div');
-        div.className = `message ${isSelf ? 'self' : 'other'}`;
-        div.textContent = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+            // 2. Setup Speech Recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                alert("Your browser does not support the Web Speech API. Please use Google Chrome.");
+                return;
+            }
 
-    // WebRTC Offline Signaling via BroadcastChannel
-    const signalingChannel = new BroadcastChannel('offline_messenger_channel');
-    let peerConnection;
-    let dataChannel;
+            recognition = new SpeechRecognition();
+            
+            // Configuration for continuous, fast listening
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
 
-    const configuration = { iceServers: [] }; // Empty because it's purely local/offline
+            // 3. Request highly sensitive microphone access
+            // Attempting to maximize capture distance by tweaking constraints
+            navigator.mediaDevices.getUserMedia({ 
+                audio: { 
+                    autoGainControl: true,       // Boosts quiet sounds automatically
+                    noiseSuppression: false,     // Don't filter out background noise
+                    echoCancellation: false      // Don't filter out room reverb
+                } 
+            }).then(stream => {
+                startOverlay.style.display = 'none';
+                statusBar.textContent = "Listening continuously... (Mic active)";
+                
+                // Start recognition
+                recognition.start();
+                isListening = true;
+                addMessage("Microphone activated. System is always listening.", "system");
 
-    async function initializeConnection() {
-        peerConnection = new RTCPeerConnection(configuration);
-
-        // Highly sensitive microphone constraints (picks up distant/noisy background sounds)
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: false, 
-                    noiseSuppression: false, 
-                    autoGainControl: true    
-                },
-                video: false
+            }).catch(err => {
+                alert("Microphone permission denied: " + err);
             });
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-        } catch (err) {
-            addMessage("Mic access denied. Voice won't work.", true);
+
+            // Handle successful voice capture
+            recognition.onresult = (event) => {
+                const current = event.resultIndex;
+                const transcript = event.results[current][0].transcript.trim();
+                
+                if (transcript.length > 0) {
+                    addMessage(transcript, 'sent');
+                    playSendSound(); // Play quiet notification sound immediately
+                }
+            };
+
+            // Force restart if it stops (Always Listening feature)
+            recognition.onend = () => {
+                if (isListening) {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // Ignore restart errors
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'not-allowed') {
+                    isListening = false;
+                    statusBar.textContent = "Microphone access blocked.";
+                }
+                // It will naturally attempt to restart via onend unless blocked
+            };
         }
 
-        // Receive remote audio
-        peerConnection.ontrack = event => {
-            remoteAudio.srcObject = event.streams[0];
-        };
-
-        // ICE Candidate handling
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                signalingChannel.postMessage({ type: 'candidate', candidate: event.candidate });
-            }
-        };
-
-        // Data Channel for fast text messaging
-        peerConnection.ondatachannel = event => {
-            const receiveChannel = event.channel;
-            receiveChannel.onmessage = e => addMessage(e.data, false);
-        };
-
-        peerConnection.onconnectionstatechange = () => {
-            if (peerConnection.connectionState === 'connected') {
-                statusText.className = 'status';
-                statusText.innerHTML = '<div class="dot"></div>Connected & Listening';
-            }
-        };
-    }
-
-    async function makeCall() {
-        await initializeConnection();
-        dataChannel = peerConnection.createDataChannel('chat');
-        dataChannel.onmessage = e => addMessage(e.data, false);
-
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        signalingChannel.postMessage({ type: 'offer', offer: offer });
-    }
-
-    // Handle offline signaling messages
-    signalingChannel.onmessage = async (event) => {
-        const message = event.data;
-
-        if (message.type === 'ping') {
-            // Other tab opened, initiate connection
-            makeCall();
-        }
-
-        if (message.type === 'offer') {
-            await initializeConnection();
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            signalingChannel.postMessage({ type: 'answer', answer: answer });
-        }
-
-        if (message.type === 'answer') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
-        }
-
-        if (message.type === 'candidate' && peerConnection) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-        }
-    };
-
-    // Send fast text message
-    function sendMessage() {
-        const text = msgInput.value.trim();
-        if (text) {
-            if (dataChannel && dataChannel.readyState === 'open') {
-                dataChannel.send(text);
-            } else if (peerConnection) {
-                // Fallback if caller hasn't initiated datachannel, send via signaling for demo robustness
-                signalingChannel.postMessage({ type: 'text', text: text });
-            }
-            addMessage(text, true);
-            playSendSound(); // Play the audio blip when sent
-            msgInput.value = '';
-        }
-    }
-
-    // Also accept fallback text messages through signaling channel
-    signalingChannel.addEventListener('message', (e) => {
-        if (e.data.type === 'text') {
-            addMessage(e.data.text, false);
-        }
-    });
-
-    sendBtn.addEventListener('click', sendMessage);
-    msgInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
-
-    // Start by pinging to see if another tab is already open
-    setTimeout(() => {
-        signalingChannel.postMessage({ type: 'ping' });
-    }, 500);
-
-</script>
+        // Wait for user to click to bypass browser restrictions
+        startBtn.addEventListener('click', initApp);
+    </script>
 </body>
 </html>
