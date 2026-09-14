@@ -3,220 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline Voice Messenger</title>
+    <title>Offline Voice & Text Messenger</title>
     <style>
+        :root {
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --primary: #0084ff;
+            --text: #e1e1e1;
+        }
         body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
             margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--surface);
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
+            height: 100%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-
-        #chat-container {
+        .header {
+            padding: 15px;
+            background: #252525;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        .header h3 { margin: 0 0 5px 0; }
+        .status {
+            font-size: 14px;
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .status.connected { color: #4caf50; }
+        
+        .setup-area {
+            padding: 15px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+            font-size: 13px;
+        }
+        .setup-area textarea {
+            width: 100%;
+            height: 60px;
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #333;
+            margin: 5px 0;
+            box-sizing: border-box;
+            padding: 5px;
+        }
+        .setup-buttons {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .setup-buttons button {
             flex: 1;
-            padding: 20px;
+            padding: 8px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .setup-buttons button:active { background: #555; }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #222;
+            border-bottom: 1px solid #333;
+        }
+        .volume-slider { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .volume-slider input { width: 100px; }
+
+        .chat-box {
+            flex: 1;
+            padding: 15px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-
         .message {
-            max-width: 70%;
-            padding: 12px 16px;
+            max-width: 80%;
+            padding: 10px 15px;
             border-radius: 18px;
-            font-size: 16px;
-            line-height: 1.4;
-            animation: popIn 0.3s ease-out;
+            font-size: 15px;
+            word-wrap: break-word;
         }
-
-        .message.sent {
-            background-color: #0b93f6;
-            color: white;
+        .message.self {
+            background: var(--primary);
             align-self: flex-end;
-            border-bottom-right-radius: 4px;
+            border-bottom-right-radius: 2px;
+        }
+        .message.other {
+            background: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
         }
 
-        .message.system {
-            background-color: #333333;
-            color: #aaaaaa;
-            align-self: center;
-            font-size: 12px;
-            border-radius: 12px;
-            text-align: center;
-        }
-
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        /* Overlay to bypass browser Autoplay/Mic block */
-        #start-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.9);
+        .input-area {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        #start-btn {
-            padding: 15px 30px;
-            font-size: 20px;
-            background-color: #0b93f6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(11, 147, 246, 0.4);
-        }
-
-        #status-bar {
-            background-color: #1e1e1e;
             padding: 10px;
-            text-align: center;
-            font-size: 14px;
-            color: #00e676;
+            background: #252525;
             border-top: 1px solid #333;
         }
+        #msgInput {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 20px;
+            border: none;
+            background: #333;
+            color: white;
+            outline: none;
+            font-size: 15px;
+        }
+        #sendBtn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        #sendBtn:active { background: #006bce; }
     </style>
 </head>
 <body>
 
-    <!-- Start Overlay for Browser Permissions -->
-    <div id="start-overlay">
-        <h2 style="margin-bottom: 20px;">Offline Voice Messenger</h2>
-        <p style="text-align: center; max-width: 400px; color: #ccc; margin-bottom: 30px;">
-            Browsers require you to click once to allow audio playback and microphone access. After this, it will listen automatically.
-        </p>
-        <button id="start-btn">Click to Initialize Messenger</button>
+<div class="container">
+    <div class="header">
+        <h3>Offline P2P Messenger</h3>
+        <div id="statusText" class="status">Microphone Active - Not Connected</div>
     </div>
 
-    <!-- Chat UI -->
-    <div id="chat-container"></div>
-    <div id="status-bar">Waiting to start...</div>
+    <div class="setup-area" id="setupArea">
+        <div><strong>Offline Connection:</strong></div>
+        <textarea id="sdpData" placeholder="Connection code will appear here, or paste a code here..."></textarea>
+        <div class="setup-buttons">
+            <button onclick="hostConnection()">1. Host</button>
+            <button onclick="joinConnection()">2. Join</button>
+            <button onclick="finalizeConnection()">3. Finalize</button>
+        </div>
+    </div>
 
-    <script>
-        const startOverlay = document.getElementById('start-overlay');
-        const startBtn = document.getElementById('start-btn');
-        const chatContainer = document.getElementById('chat-container');
-        const statusBar = document.getElementById('status-bar');
+    <div class="controls">
+        <div class="volume-slider">
+            <span>Speaker Vol:</span>
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.2">
+        </div>
+    </div>
 
-        let audioCtx;
-        let recognition;
-        let isListening = false;
+    <div class="chat-box" id="chatBox">
+        <div style="text-align: center; color: #777; font-size: 12px;">
+            Background listening started automatically. Waiting for connection...
+        </div>
+    </div>
 
-        // Play a fast, offline generated "sent" sound using Web Audio API
-        function playSendSound() {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime); // High pitch pop
-            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
-            
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            // Speaker can be quiet: volume set low to 0.2 out of 1.0
-            gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
-            
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
-        }
+    <div class="input-area">
+        <input type="text" id="msgInput" placeholder="Message..." autocomplete="off">
+        <button id="sendBtn">➤</button>
+    </div>
+</div>
 
-        function addMessage(text, type = 'sent') {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', type);
-            msgDiv.textContent = text;
-            chatContainer.appendChild(msgDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+<audio id="remoteAudio" autoplay></audio>
 
-        function initApp() {
-            // 1. Initialize Audio Context for Sounds
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+<script>
+    // System Elements
+    const chatBox = document.getElementById('chatBox');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const statusText = document.getElementById('statusText');
+    const remoteAudio = document.getElementById('remoteAudio');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const sdpData = document.getElementById('sdpData');
+    const setupArea = document.getElementById('setupArea');
 
-            // 2. Setup Speech Recognition
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            
-            if (!SpeechRecognition) {
-                alert("Your browser does not support the Web Speech API. Please use Google Chrome.");
-                return;
-            }
+    // Volume Control (can be very quiet)
+    remoteAudio.volume = volumeSlider.value;
+    volumeSlider.addEventListener('input', (e) => {
+        remoteAudio.volume = e.target.value;
+    });
 
-            recognition = new SpeechRecognition();
-            
-            // Configuration for continuous, fast listening
-            recognition.continuous = true;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
+    // Audio Context for message send sound (Bloop)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
 
-            // 3. Request highly sensitive microphone access
-            // Attempting to maximize capture distance by tweaking constraints
-            navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    autoGainControl: true,       // Boosts quiet sounds automatically
-                    noiseSuppression: false,     // Don't filter out background noise
-                    echoCancellation: false      // Don't filter out room reverb
-                } 
-            }).then(stream => {
-                startOverlay.style.display = 'none';
-                statusBar.textContent = "Listening continuously... (Mic active)";
-                
-                // Start recognition
-                recognition.start();
-                isListening = true;
-                addMessage("Microphone activated. System is always listening.", "system");
+    function playSendSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
 
-            }).catch(err => {
-                alert("Microphone permission denied: " + err);
+    // Chat Functions
+    function addMessage(text, isSelf) {
+        const div = document.createElement('div');
+        div.className = `message ${isSelf ? 'self' : 'other'}`;
+        div.textContent = text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // WEBRTC PEER CONNECTION (OFFLINE P2P)
+    let peerConnection;
+    let dataChannel;
+    let localStream;
+
+    const config = {
+        iceServers: [] // No external servers, fully offline local network routing
+    };
+
+    // Auto-start Microphone with extreme sensitivity
+    async function startAlwaysListening() {
+        try {
+            // Highly sensitive constraints to capture background and distant noises
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: true,
+                    channelCount: 2
+                },
+                video: false
             });
+            console.log("Microphone is constantly listening in the background.");
+        } catch (err) {
+            addMessage("Microphone blocked! Please allow permissions.", true);
+        }
+    }
 
-            // Handle successful voice capture
-            recognition.onresult = (event) => {
-                const current = event.resultIndex;
-                const transcript = event.results[current][0].transcript.trim();
-                
-                if (transcript.length > 0) {
-                    addMessage(transcript, 'sent');
-                    playSendSound(); // Play quiet notification sound immediately
-                }
-            };
+    // Start listening immediately on page load
+    window.onload = startAlwaysListening;
 
-            // Force restart if it stops (Always Listening feature)
-            recognition.onend = () => {
-                if (isListening) {
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        // Ignore restart errors
-                    }
-                }
-            };
+    function initPeerConnection() {
+        peerConnection = new RTCPeerConnection(config);
 
-            recognition.onerror = (event) => {
-                if (event.error === 'not-allowed') {
-                    isListening = false;
-                    statusBar.textContent = "Microphone access blocked.";
-                }
-                // It will naturally attempt to restart via onend unless blocked
-            };
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
         }
 
-        // Wait for user to click to bypass browser restrictions
-        startBtn.addEventListener('click', initApp);
-    </script>
+        peerConnection.ontrack = event => {
+            remoteAudio.srcObject = event.streams[0];
+        };
+
+        peerConnection.onicecandidate = e => {
+            // Wait for ICE gathering to complete to generate the offline code
+            if (e.candidate === null) {
+                const code = btoa(JSON.stringify(peerConnection.localDescription));
+                sdpData.value = code;
+                sdpData.select();
+            }
+        };
+
+        peerConnection.onconnectionstatechange = () => {
+            if (peerConnection.connectionState === 'connected') {
+                statusText.textContent = "Connected & Listening";
+                statusText.className = "status connected";
+                setupArea.style.display = 'none'; // Hide setup once connected
+            }
+        };
+    }
+
+    function setupDataChannel() {
+        dataChannel.onopen = () => console.log("Data channel open");
+        dataChannel.onmessage = e => {
+            addMessage(e.data, false);
+        };
+    }
+
+    // Step 1: Host
+    async function hostConnection() {
+        initPeerConnection();
+        dataChannel = peerConnection.createDataChannel('chat');
+        setupDataChannel();
+        
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sdpData.value = "Generating host code... Please wait a second.";
+    }
+
+    // Step 2: Join
+    async function joinConnection() {
+        const offerStr = sdpData.value.trim();
+        if (!offerStr) return alert("Paste the Host's code first!");
+        
+        initPeerConnection();
+        peerConnection.ondatachannel = event => {
+            dataChannel = event.channel;
+            setupDataChannel();
+        };
+
+        const offer = JSON.parse(atob(offerStr));
+        await peerConnection.setRemoteDescription(offer);
+        
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        sdpData.value = "Generating join code... Please wait a second.";
+    }
+
+    // Step 3: Finalize
+    async function finalizeConnection() {
+        const answerStr = sdpData.value.trim();
+        if (!answerStr) return alert("Paste the Joiner's code first!");
+        
+        const answer = JSON.parse(atob(answerStr));
+        await peerConnection.setRemoteDescription(answer);
+    }
+
+    // Sending Messages fast
+    function sendMessage() {
+        const text = msgInput.value.trim();
+        if (text && dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(text);
+            addMessage(text, true);
+            playSendSound(); // Play audio when sending
+            msgInput.value = '';
+        } else if (!dataChannel || dataChannel.readyState !== 'open') {
+            alert("Not connected to another phone yet!");
+        }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+</script>
 </body>
 </html>
